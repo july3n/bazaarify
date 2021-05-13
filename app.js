@@ -35,7 +35,12 @@ app.use(shopRoutes);
 app.use(errorController.get404);
 
 mongoose
-  .connect(connectionData)
+  .connect(connectionData, {
+    useNewUrlParser: true,
+    useFindAndModify: false,
+    useCreateIndex: true,
+    useUnifiedTopology: true,
+  })
   .then(result => {
     User.findOne().then(user => {
       if (!user) {
