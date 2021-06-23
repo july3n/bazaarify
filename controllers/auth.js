@@ -1,6 +1,17 @@
 const bcrypt = require('bcryptjs');
+const nodemailer = require('nodemailer');
+const sendgridTransport = require('nodemailer-sendgrid-transport');
 
 const User = require('../models/user');
+
+const transporter = nodemailer.createTransport(
+  sendgridTransport({
+    auth: {
+      api_key:
+        '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',
+    },
+  })
+);
 
 exports.getLogin = (req, res, next) => {
   let message = req.flash('error');
@@ -72,18 +83,29 @@ exports.postSignup = (req, res, next) => {
         req.flash('error', 'This e-mail already taken');
         return res.redirect('/signup');
       }
-      return bcrypt.hash(password, 12).then(hashedPassword => {
-        // New user
-        const user = new User({
-          email: email,
-          password: hashedPassword,
-          cart: { items: [] },
+      return bcrypt
+        .hash(password, 12)
+        .then(hashedPassword => {
+          // New user
+          const user = new User({
+            email: email,
+            password: hashedPassword,
+            cart: { items: [] },
+          });
+          return user.save();
+        })
+        .then(result => {
+          res.redirect('/login');
+          return transporter.sendMail({
+            to: email,
+            from: 'bazaarifyy@gmail.com',
+            subject: 'Signup succeeded!',
+            html: '<h1> Welcome...thanks for signup! </h1>',
+          });
+        })
+        .catch(err => {
+          console.log(err);
         });
-        return user.save();
-      });
-    })
-    .then(result => {
-      res.redirect('/login');
     })
     .catch(err => {
       console.log(err);
@@ -94,5 +116,19 @@ exports.postLogout = (req, res, next) => {
   req.session.destroy(err => {
     console.log(err);
     res.redirect('/');
+  });
+};
+
+exports.getReset = (req, res, next) => {
+  let message = req.flash('error');
+  if (message.length > 0) {
+    message = message[0];
+  } else {
+    message = null;
+  }
+  res.render('auth/reset', {
+    path: '/reset',
+    pageTitle: 'Reset Page',
+    errorMessage: message,
   });
 };
