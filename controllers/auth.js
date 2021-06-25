@@ -6,6 +6,8 @@ const sendgridTransport = require('nodemailer-sendgrid-transport');
 
 const User = require('../models/user');
 const { SENDGRID_API } = require('../util/personalData');
+const user = require('../models/user');
+const { reset } = require('nodemon');
 
 const transporter = nodemailer.createTransport(
   sendgridTransport({
@@ -80,7 +82,7 @@ exports.postSignup = (req, res, next) => {
   const confirmPassword = req.body.confirmPassword;
   User.findOne({ email: email })
     .then(userDoc => {
-      //  The user who using this email already exist
+      //  Email already taken by a user
       if (userDoc) {
         req.flash('error', 'This e-mail already taken');
         return res.redirect('/signup');
@@ -142,6 +144,7 @@ exports.postReset = (req, res, next) => {
       return res.redirect('/reset');
     }
     const token = buffer.toString('hex');
+
     User.findOne({ email: req.body.email })
       .then(user => {
         if (!user) {
@@ -165,10 +168,64 @@ exports.postReset = (req, res, next) => {
 
           `,
         });
-        console.log(req.body.email);
       })
       .catch(err => {
         console.log(err);
       });
   });
+};
+
+exports.getNewPassword = (req, res, next) => {
+  const token = req.params.token;
+  User.findOne({
+    resetToken: token,
+    resetTokenExpiration: { $gt: Date.now() },
+  })
+    .then(user => {
+      let message = req.flash('error');
+      if (message.length > 0) {
+        message = message[0];
+      } else {
+        message = null;
+      }
+      res.render('auth/new-password', {
+        path: '/new-password',
+        pageTitle: 'New Password',
+        errorMessage: message,
+        userId: user._id.toString(),
+        passwordToken: token,
+      });
+    })
+    .catch(err => {
+      console.log(err);
+    });
+};
+
+exports.postNewPassword = (req, res, next) => {
+  const newPassword = req.body.password;
+  const userId = req.body.userId;
+  const passwordToken = req.body.passwordToken;
+  let resetUser;
+
+  User.findOne({
+    resetToken: passwordToken,
+    resetTokenExpiration: { $gt: Date.now() },
+    _id: userId,
+  })
+    .then(user => {
+      resetUser = user;
+      return bcrypt.hash(newPassword, 12);
+    })
+    .then(hashedPassword => {
+      resetUser.password = hashedPassword;
+      resetUser.resetToken = undefined;
+      resetUser.resetTokenExpiration = undefined;
+      return resetUser.save();
+    })
+    .then(result => {
+      res.redirect('/login');
+    })
+    .catch(err => {
+      console.log(err);
+    });
 };
