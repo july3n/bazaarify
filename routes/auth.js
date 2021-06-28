@@ -1,4 +1,3 @@
-const { promiseImpl } = require('ejs');
 const express = require('express');
 const { check, body } = require('express-validator');
 
@@ -14,10 +13,14 @@ router.get('/signup', authController.getSignup);
 router.post(
   '/login',
   [
-    body('email').isEmail().withMessage('Please try again with correct email'),
+    body('email')
+      .isEmail()
+      .withMessage('Please try again with correct email')
+      .normalizeEmail(),
     body('password', 'Please try again with correct password')
       .isLength({ min: 5, max: 16 })
-      .isAlphanumeric(),
+      .isAlphanumeric()
+      .trim(),
   ],
   authController.postLogin
 );
@@ -36,19 +39,23 @@ router.post(
             );
           }
         });
-      }),
+      })
+      .normalizeEmail(),
     body(
       'password',
       'Please enter a password with only numbers and text and between 5-16 characters'
     )
       .isLength({ min: 5, max: 16 })
-      .isAlphanumeric(),
-    body('confirmPassword').custom((value, { req }) => {
-      if (!value === req.body.password) {
-        throw new Error('Passwords have to match!');
-      }
-      return true;
-    }),
+      .isAlphanumeric()
+      .trim(),
+    body('confirmPassword')
+      .trim()
+      .custom((value, { req }) => {
+        if (value !== req.body.password) {
+          throw new Error('Passwords have to match!');
+        }
+        return true;
+      }),
   ],
   authController.postSignup
 );
