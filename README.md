@@ -1,2 +1,2 @@
 # bazaarify
-eCommerce Web App
+eCommerce
